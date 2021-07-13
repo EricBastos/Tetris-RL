@@ -1,6 +1,7 @@
 from .tile import Tile
 import os
 import pygame
+import numpy as np
 
 
 class Tetromino(pygame.sprite.Sprite):
@@ -93,7 +94,13 @@ class Tetromino(pygame.sprite.Sprite):
                     new_tile = Tile(self.board.tile_lib[name],
                                     init_pos + pygame.Vector2(j * settings.tile_size, i * settings.tile_size))
                     self.tileset.add(new_tile)
+
+        self.last_movement = 'Left'
+        self.last_wallkick = 0
         self.calculate_shadow()
+
+        self.DAS_counter = self.settings.DAS
+        self.ARR_counter = 0
 
     def update(self, events):
         self.tileset.draw(self.screen)
@@ -106,18 +113,21 @@ class Tetromino(pygame.sprite.Sprite):
                         for tile in self.tileset.sprites():
                             tile.update((tile.rect.x - self.settings.tile_size, tile.rect.y))
                         self.calculate_shadow()
+                        self.last_movement = 'Left'
                 elif event.key == pygame.K_d:
                     if not self.check_collision(self.rotation, (1, 0)):
                         self.column += 1
                         for tile in self.tileset.sprites():
                             tile.update((tile.rect.x + self.settings.tile_size, tile.rect.y))
                         self.calculate_shadow()
+                        self.last_movement = 'Right'
                 elif event.key == pygame.K_s:
                     if not self.check_collision(self.rotation, (0, 1)):
                         self.line += 1
                         for tile in self.tileset.sprites():
                             tile.update((tile.rect.x, tile.rect.y + self.settings.tile_size))
                         self.calculate_shadow()
+                        self.last_movement = 'Down'
                 elif event.key == pygame.K_j or event.key == pygame.K_k:  # Counter clockwise
                     rotation_change_value = -1
                     if event.key == pygame.K_k:
@@ -130,7 +140,7 @@ class Tetromino(pygame.sprite.Sprite):
                     detected_collision = True
                     successful_test = None
                     for i in range(5):
-                        print(f'Walkick test {rotation_key} {piece_key} {i}')
+                        #print(f'Walkick test {rotation_key} {piece_key} {i}')
                         if not self.check_collision(temp_rotation, self.wall_kick[piece_key][rotation_key][i]):
                             successful_test = i
                             detected_collision = False
@@ -149,7 +159,11 @@ class Tetromino(pygame.sprite.Sprite):
                                                     pos + pygame.Vector2(j * self.settings.tile_size,
                                                                          i * self.settings.tile_size))
                                     self.tileset.add(new_tile)
+                        self.last_wallkick = successful_test
                         self.calculate_shadow()
+                        self.last_movement = "Rotate CClockwise"
+                        if event.key == pygame.K_k:
+                            self.last_movement = "Rotate Clockwise"
                 elif event.key == pygame.K_SPACE:
                     line_dif = 0
                     while not self.check_collision(self.rotation, (0, 1)):
@@ -161,16 +175,20 @@ class Tetromino(pygame.sprite.Sprite):
                             if self.data[self.rotation][i][j] != 0:
                                 tiles_to_append.append((i + self.line, j + self.column))
                     pygame.event.post(
-                        pygame.event.Event(pygame.USEREVENT + 1, tileList=tiles_to_append, tileName=self.name))
+                        pygame.event.Event(pygame.USEREVENT + 1, tileList=tiles_to_append, tileName=self.name,
+                                           tilePos=(self.line, self.column), tileRotation=self.rotation,
+                                           lastMovement=self.last_movement, lastWallkick=self.last_wallkick))
                     self.tileset.empty()
                     self.shadow.empty()
+                    self.last_movement = 'Left'
+                    self.last_wallkick = 0
 
     def check_collision(self, rotation, translation):
         for i in range(len(self.data[rotation])):
             for j in range(len(self.data[rotation][i])):
                 if self.data[rotation][i][j] != 0:
                     try:
-                        if self.board.matrix[self.line + translation[1] + i][self.column + translation[0] + j] != 'E':
+                        if self.board.matrix[self.line + translation[1] + i, self.column + translation[0] + j] != 'E':
                             return True
                     except (IndexError, ValueError):
                         return True

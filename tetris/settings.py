@@ -8,3 +8,6 @@ board_width = 33 * 10
 board_height = 33 * 20
 
 FPS = 120
+
+DAS = 60
+ARR = 30

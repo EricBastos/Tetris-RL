@@ -6,7 +6,7 @@ import numpy as np
 
 class Board(pygame.sprite.Sprite):
 
-    matrix = [
+    matrix = np.array([
         ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
         ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
         ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
@@ -39,16 +39,16 @@ class Board(pygame.sprite.Sprite):
         ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
         ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
         ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
-        ['B', 'E', 'E', 'E', 'E', 'E', 'L', 'L', 'E', 'E', 'E', 'B'],
-        ['B', 'E', 'E', 'E', 'E', 'E', 'L', 'L', 'E', 'E', 'I', 'B'],
-        ['B', 'O', 'O', 'E', 'E', 'E', 'L', 'L', 'E', 'E', 'I', 'B'],
-        ['B', 'O', 'O', 'E', 'E', 'S', 'L', 'L', 'E', 'E', 'I', 'B'],
-        ['B', 'J', 'J', 'Z', 'E', 'S', 'S', 'E', 'E', 'E', 'I', 'B'],
-        ['B', 'J', 'Z', 'Z', 'S', 'S', 'S', 'E', 'J', 'J', 'J', 'B'],
-        ['B', 'J', 'Z', 'S', 'S', 'O', 'O', 'E', 'E', 'T', 'J', 'B'],
-        ['B', 'I', 'I', 'I', 'I', 'O', 'O', 'E', 'T', 'T', 'T', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+        ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
         ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B']
-    ]
+    ])
 
     tile_lib = {
         'B': 'tetris/images/tiles/board_tile.png',
@@ -87,43 +87,97 @@ class Board(pygame.sprite.Sprite):
         for i in range(41):
             for j in range(12):
                 new_tile = Tile(self.tile_lib['E'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                if self.matrix[i][j] == 'I':
+                if self.matrix[i, j] == 'I':
                     new_tile = Tile(self.tile_lib['I'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                elif self.matrix[i][j] == 'J':
+                elif self.matrix[i, j] == 'J':
                     new_tile = Tile(self.tile_lib['J'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                elif self.matrix[i][j] == 'L':
+                elif self.matrix[i, j] == 'L':
                     new_tile = Tile(self.tile_lib['L'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                elif self.matrix[i][j] == 'O':
+                elif self.matrix[i, j] == 'O':
                     new_tile = Tile(self.tile_lib['O'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                elif self.matrix[i][j] == 'S':
+                elif self.matrix[i, j] == 'S':
                     new_tile = Tile(self.tile_lib['S'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                elif self.matrix[i][j] == 'T':
+                elif self.matrix[i, j] == 'T':
                     new_tile = Tile(self.tile_lib['T'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                elif self.matrix[i][j] == 'Z':
+                elif self.matrix[i, j] == 'Z':
                     new_tile = Tile(self.tile_lib['Z'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
-                elif self.matrix[i][j] == 'B':
+                elif self.matrix[i, j] == 'B':
                     new_tile = Tile(self.tile_lib['B'], self.position + pygame.Vector2(j*self.settings.tile_size, i*self.settings.tile_size))
                 self.board.add(new_tile)
 
     def update(self):
         self.board.draw(self.screen)
 
-    def change(self, tile, new_tile_name) -> int:
-        self.matrix[tile[0]][tile[1]] = new_tile_name
+    def change(self, tile, new_tile_name):
+        self.matrix[tile[0], tile[1]] = new_tile_name
         self.board.sprites()[12*tile[0]+tile[1]].change_tile(self.tile_lib[new_tile_name])
 
+# Line clear count (int)
+# Perfect Clear (flag)
+# T-spin (flag)
+
+    def clear_lines(self, tile_name, tile_position, tile_rotation, last_movement, last_wallkick) -> [int, bool, bool]:
         cleared_lines = 0
-        for i in range(19,40):
+        new_board = None
+        last_cleared_line = 0
+        perfect_clear = True
+        tspin = False
+        for i in range(19, 40):
             line_complete = True
             for j in range(1, 11):
-                if self.matrix[i][j] == 'E':
+                if self.matrix[i, j] == 'E':
                     line_complete = False
                     break
             if line_complete:
                 cleared_lines += 1
-                for lines_above in reversed(range(1, i+1)):
-                    self.matrix[lines_above] = self.matrix[lines_above-1]
-                self.matrix[0] = ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B']
+                if new_board is not None:
+                    new_board = np.vstack((new_board, self.matrix[last_cleared_line:i]))
+                else:
+                    new_board = self.matrix[last_cleared_line:i]
+                last_cleared_line = i + 1
         if cleared_lines > 0:
-            self.recreate_board()
-        return cleared_lines
+            if new_board is not None:
+                new_board = np.vstack((new_board, self.matrix[last_cleared_line:41]))
+            for new_line in range(cleared_lines):
+                new_board = np.vstack((np.array(['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B']), new_board))
+
+            # Check Perfect Clear
+            for i in reversed(range(40)):
+                for j in range(1, 11):
+                    if new_board[i, j] != 'E':
+                        perfect_clear = False
+
+            # Check T-spin
+            if tile_name == 'T' and (last_movement == 'Rotate CClockwise' or last_movement == 'Rotate Clockwise'):
+                if tile_rotation == 0:
+                    if (self.matrix[tile_position[0], tile_position[1]] != 'E' and
+                        self.matrix[tile_position[0], tile_position[1]+2] != 'E' and
+                        (self.matrix[tile_position[0]+2, tile_position[1]] != 'E' or
+                         self.matrix[tile_position[0]+2, tile_position[1]+2] != 'E')):
+                        tspin = True
+                elif tile_rotation == 1:
+                    if (self.matrix[tile_position[0], tile_position[1]+2] != 'E' and
+                        self.matrix[tile_position[0]+2, tile_position[1]+2] != 'E' and
+                        (self.matrix[tile_position[0], tile_position[1]] != 'E' or
+                         self.matrix[tile_position[0]+2, tile_position[1]] != 'E')):
+                        tspin = True
+                elif tile_rotation == 2:
+                    if (self.matrix[tile_position[0]+2, tile_position[1]] != 'E' and
+                        self.matrix[tile_position[0]+2, tile_position[1]+2] != 'E' and
+                        (self.matrix[tile_position[0], tile_position[1]] != 'E' or
+                         self.matrix[tile_position[0], tile_position[1]+2] != 'E')):
+                        tspin = True
+                elif tile_rotation == 3:
+                    if (self.matrix[tile_position[0], tile_position[1]] != 'E' and
+                        self.matrix[tile_position[0]+2, tile_position[1]] != 'E' and
+                        (self.matrix[tile_position[0], tile_position[1]+2] != 'E' or
+                         self.matrix[tile_position[0]+2, tile_position[1]+2] != 'E')):
+                        tspin = True
+                elif last_wallkick == 4:
+                    tspin = True
+
+            self.matrix = new_board.copy()
+            self.recreate_board() # needs to be optimized
+
+        return [cleared_lines, perfect_clear, tspin]
+

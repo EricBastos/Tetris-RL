@@ -25,10 +25,15 @@ class TetrisMode(GameMode):
         self.generate_tetromino()
         self.evaluate_next_pieces()
 
+        self.back_to_back = False
+        self.combo = -1
+
     def loop(self, events):
         for event in events:
             if event.type == pygame.USEREVENT+1:
-                self.tile_placed(event.tileList, event.tileName)
+                self.tile_placed(event.tileList, event.tileName,
+                                 event.tilePos, event.tileRotation,
+                                 event.lastMovement, event.lastWallkick)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LSHIFT:
                     self.hold()
@@ -39,13 +44,27 @@ class TetrisMode(GameMode):
         self.next_pieces.draw(self.screen)
         self.hold_piece.draw(self.screen)
 
-    def tile_placed(self, tile_list, tile_name):
+    def tile_placed(self, tile_list, tile_name, tile_position, tile_rotation, last_movement, last_wallkick):
         for tile in tile_list:
             self.board.change(tile, tile_name)
-
+        cleared_lines, pc, tspin = \
+            self.board.clear_lines(tile_name, tile_position, tile_rotation, last_movement, last_wallkick)
         self.generate_tetromino()
         self.evaluate_next_pieces()
         self.has_held = False
+        if cleared_lines > 0:
+            self.combo += 1
+            if self.back_to_back:
+                print('Back to Back')
+            self.back_to_back = True
+            print(f'Lines Cleared: {cleared_lines}, combo: {self.combo}')
+            if tspin:
+                print('Tspin')
+            if pc:
+                print('Perfect Clear')
+        else:
+            self.back_to_back = False
+            self.combo = -1
 
     def generate_tetromino(self):
         if self.current_bag_index == 7:
@@ -60,7 +79,7 @@ class TetrisMode(GameMode):
     def evaluate_next_pieces(self):
         self.next_pieces.empty()
         all_pieces = self.current_bag+self.next_bag
-        print(all_pieces)
+        #print(all_pieces)
         draw_position = pygame.Vector2(self.settings.screen_width/2 + 8*self.settings.tile_size, 1*self.settings.tile_size)
         for i in range(self.current_bag_index, self.current_bag_index+5):
             tile_name = all_pieces[i]
@@ -84,6 +103,7 @@ class TetrisMode(GameMode):
             if self.hold_tetromino == '':
                 self.hold_tetromino = self.current_tetromino.name
                 self.generate_tetromino()
+                self.evaluate_next_pieces()
             else:
                 temp_hold_name = self.hold_tetromino
                 self.hold_tetromino = self.current_tetromino.name
