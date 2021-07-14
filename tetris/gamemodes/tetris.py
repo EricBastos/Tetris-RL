@@ -1,6 +1,7 @@
 from .gamemode import GameMode
 import pygame
 from ..tiles import Board, Tetromino, Tile
+from ..rl import ListMoves
 import random
 
 
@@ -22,11 +23,18 @@ class TetrisMode(GameMode):
         self.next_bag = self.current_bag
         random.shuffle(self.current_bag)
         random.shuffle(self.next_bag)
+        self.moves = []
         self.generate_tetromino()
         self.evaluate_next_pieces()
 
         self.back_to_back = False
         self.combo = -1
+
+        self.debug_autoplay = settings.DEBUG_AUTOMOVE
+        self.autoplay_timer = 0
+        self.autoplay_counter = 0
+        self.autoplay_move = 0
+        self.autoplaying = False
 
     def loop(self, events):
         for event in events:
@@ -43,6 +51,42 @@ class TetrisMode(GameMode):
         self.current_tetromino.update(events)
         self.next_pieces.draw(self.screen)
         self.hold_piece.draw(self.screen)
+        if self.debug_autoplay:
+            self.handle_debug(events)
+
+    def handle_debug(self, events):
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_z:
+                    self.autoplay_move = 0
+                    self.autoplay_counter = 0
+                    self.autoplay_timer = 0
+                    self.autoplaying = 1
+                    print('Autoplay')
+        if self.autoplaying:
+            if self.autoplay_timer == 10:
+                name_to_key = {
+                    'down': pygame.K_s,
+                    'left': pygame.K_a,
+                    'right': pygame.K_d,
+                    'clockwise': pygame.K_l,
+                    'cclockwise': pygame.K_k
+                }
+                print(f'{len(self.moves[self.autoplay_move])} {self.autoplay_move} {self.autoplay_counter}')
+                pygame.event.post(
+                    pygame.event.Event(pygame.KEYDOWN, key=name_to_key[self.moves[self.autoplay_move][self.autoplay_counter]]))
+                self.autoplay_counter += 1
+                self.autoplay_timer = 0
+                if self.autoplay_counter == len(self.moves[self.autoplay_move])-1:
+                    self.autoplay_move += 1
+                    self.autoplay_counter = 0
+                    self.current_tetromino.line = 19
+                    self.current_tetromino.column = 4
+                    self.current_tetromino.restart_tile()
+                if self.autoplay_move == len(self.moves):
+                    self.autoplaying = 0
+            else:
+                self.autoplay_timer += 1
 
     def tile_placed(self, tile_list, tile_name, tile_position, tile_rotation, last_movement, last_wallkick):
         for tile in tile_list:
@@ -54,16 +98,18 @@ class TetrisMode(GameMode):
         self.has_held = False
         if cleared_lines > 0:
             self.combo += 1
-            if self.back_to_back:
-                print('Back to Back')
-            self.back_to_back = True
+            if cleared_lines == 4 or tspin:
+                if self.back_to_back:
+                    print('Back to Back')
+                self.back_to_back = True
+            else:
+                self.back_to_back = False
             print(f'Lines Cleared: {cleared_lines}, combo: {self.combo}')
             if tspin:
                 print('Tspin')
             if pc:
                 print('Perfect Clear')
         else:
-            self.back_to_back = False
             self.combo = -1
 
     def generate_tetromino(self):
@@ -72,9 +118,11 @@ class TetrisMode(GameMode):
             random.shuffle(self.next_bag)
             self.current_bag_index = 0
 
-        self.current_tetromino = Tetromino(self.board, self.current_bag[self.current_bag_index],
+        self.current_tetromino = Tetromino(self.board, 'T',
                                            self.board_position, self.settings, self.screen)
         self.current_bag_index += 1
+        self.moves = ListMoves(self.board, self.current_tetromino.name).list_moves()
+        #print(self.moves)
 
     def evaluate_next_pieces(self):
         self.next_pieces.empty()

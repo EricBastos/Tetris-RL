@@ -104,11 +104,14 @@ class Tetromino(pygame.sprite.Sprite):
         self.lock_down = 0
         self.movement_count = 0
 
+        self.debug_autplay = settings.DEBUG_AUTOMOVE
+
     def update(self, events):
         self.tileset.draw(self.screen)
         self.shadow.draw(self.screen)
         self.handle_input(events)
-        self.handle_gravity()
+        if not self.debug_autplay:
+            self.handle_gravity()
 
     def handle_gravity(self):
         if self.lock_down == self.settings.TIME_DELAY:
@@ -158,9 +161,9 @@ class Tetromino(pygame.sprite.Sprite):
                         self.calculate_shadow()
                         self.last_movement = 'Down'
                         self.lock_down = 0
-                elif event.key == pygame.K_j or event.key == pygame.K_k:  # Counter clockwise
+                elif event.key == pygame.K_k or event.key == pygame.K_l:
                     rotation_change_value = -1
-                    if event.key == pygame.K_k:
+                    if event.key == pygame.K_l:
                         rotation_change_value = 1
                     temp_rotation = (self.rotation + rotation_change_value) % 4
                     rotation_key = self.rotation * 10 + temp_rotation
@@ -192,7 +195,7 @@ class Tetromino(pygame.sprite.Sprite):
                         self.last_wallkick = successful_test
                         self.calculate_shadow()
                         self.last_movement = "Rotate CClockwise"
-                        if event.key == pygame.K_k:
+                        if event.key == pygame.K_l:
                             self.last_movement = "Rotate Clockwise"
                         if self.movement_count < self.settings.MAX_RESET and self.check_collision(self.rotation, (0, 1)):
                             self.lock_down = 0
@@ -283,3 +286,14 @@ class Tetromino(pygame.sprite.Sprite):
         super().kill()
         self.tileset.empty()
         self.shadow.empty()
+
+    def restart_tile(self):
+        self.tileset.empty()
+        init_pos = self.board_position + pygame.Vector2(4 * self.settings.tile_size,
+                                                        19 * self.settings.tile_size)
+        for i in range(len(self.data[self.rotation])):
+            for j in range(len(self.data[self.rotation][i])):
+                if self.data[self.rotation][i][j] != 0:
+                    new_tile = Tile(self.board.tile_lib[self.name],
+                                    init_pos + pygame.Vector2(j * self.settings.tile_size, i * self.settings.tile_size))
+                    self.tileset.add(new_tile)
