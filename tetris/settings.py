@@ -9,5 +9,7 @@ board_height = 33 * 20
 
 FPS = 120
 
-DAS = 60
-ARR = 30
+DAS = 20
+ARR = 5
+TIME_DELAY = 60
+MAX_RESET = 15
