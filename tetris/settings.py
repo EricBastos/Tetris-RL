@@ -14,4 +14,5 @@ ARR = 5
 TIME_DELAY = 60
 MAX_RESET = 15
 
-DEBUG_AUTOMOVE = True
+DEBUG_AUTOMOVE = False # Debug find_moves.py and the key sequence
+TRAINING_MODE = False # Piece goes directly to the chosen valid position

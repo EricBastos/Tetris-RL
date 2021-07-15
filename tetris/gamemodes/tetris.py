@@ -13,10 +13,12 @@ class TetrisMode(GameMode):
         self.board_position = pygame.Vector2((settings.screen_width - settings.board_width) / 2 - settings.tile_size,
                                         (-settings.tile_size * 41) + settings.screen_height)
         self.board = Board(self.board_position, settings, screen)
+
         self.next_pieces = pygame.sprite.Group()
         self.hold_piece = pygame.sprite.Group()
         self.hold_tetromino = ''
         self.has_held = False
+
         self.current_tetromino = None
         self.current_bag_index = 0
         self.current_bag = ['I', 'J', 'L', 'O', 'S', 'T', 'Z']
@@ -24,17 +26,20 @@ class TetrisMode(GameMode):
         random.shuffle(self.current_bag)
         random.shuffle(self.next_bag)
         self.moves = []
+
+        self.debug_autoplay = settings.DEBUG_AUTOMOVE
+        self.autoplay_timer = 0
+        self.autoplay_counter = 0
+        self.autoplay_move = 0
+        self.autoplaying = False
+
         self.generate_tetromino()
         self.evaluate_next_pieces()
 
         self.back_to_back = False
         self.combo = -1
 
-        self.debug_autoplay = settings.DEBUG_AUTOMOVE
-        self.autoplay_timer = 0
-        self.autoplay_counter = 0
-        self.autoplay_move = -1
-        self.autoplaying = False
+        self.training_mode = settings.TRAINING_MODE
 
     def loop(self, events):
         for event in events:
@@ -43,16 +48,47 @@ class TetrisMode(GameMode):
                                  event.tilePos, event.tileRotation,
                                  event.lastMovement, event.lastWallkick)
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LSHIFT:
-                    self.hold()
+                if not self.training_mode:
+                    if event.key == pygame.K_LSHIFT:
+                        self.hold()
+                    elif event.key == pygame.K_a:
+                        self.current_tetromino.press_side(-1, 0, 'Left')
+                    elif event.key == pygame.K_d:
+                        self.current_tetromino.press_side(+1, 0, 'Right')
+                    elif event.key == pygame.K_s:
+                        self.current_tetromino.press_side(0, +1, 'Down')
+                    elif event.key == pygame.K_k:
+                        self.current_tetromino.rotate(-1, 'Rotate CClockwise')
+                    elif event.key == pygame.K_l:
+                        self.current_tetromino.rotate(+1, 'Rotate Clockwise')
+                    elif event.key == pygame.K_SPACE:
+                        self.current_tetromino.lock_piece()
+                else:
+                    if event.key == pygame.K_LSHIFT:
+                        self.hold()
+                    elif event.key == pygame.K_a:
+                        self.autoplay_move = (self.autoplay_move - 1) % len(self.moves)
+                    elif event.key == pygame.K_d:
+                        self.autoplay_move = (self.autoplay_move + 1) % len(self.moves)
+                    elif event.key == pygame.K_SPACE:
+                        new_line, new_column, new_rotation = self.moves[self.autoplay_move][-1]
+                        self.autoplay_move = 0
+                        self.current_tetromino.position_tile(new_line, new_column, new_rotation)
+                        self.current_tetromino.lock_piece()
 
         self.screen.fill(0)
         self.board.update()
         self.current_tetromino.update(events)
         self.next_pieces.draw(self.screen)
         self.hold_piece.draw(self.screen)
-        if self.debug_autoplay:
-            self.handle_debug(events)
+        if self.debug_autoplay or self.training_mode:
+            #print(self.moves[self.autoplay_move][-1])
+            self.current_tetromino.debug_shadow_line = self.moves[self.autoplay_move][-1][0]
+            self.current_tetromino.debug_shadow_column = self.moves[self.autoplay_move][-1][1]
+            self.current_tetromino.debug_shadow_rotation = self.moves[self.autoplay_move][-1][2]
+            self.current_tetromino.calculate_shadow()
+            if self.debug_autoplay:
+                self.handle_debug(events)
 
     def handle_debug(self, events):
         pressed_x = False
@@ -74,9 +110,6 @@ class TetrisMode(GameMode):
                 if event.key == pygame.K_x:
                     pressed_x = True
         if self.autoplaying:
-            self.current_tetromino.debug_shadow_line = self.moves[self.autoplay_move][-1][0]
-            self.current_tetromino.debug_shadow_column = self.moves[self.autoplay_move][-1][1]
-            self.current_tetromino.debug_shadow_rotation = self.moves[self.autoplay_move][-1][2]
             if pressed_x:
                 name_to_key = {
                     'S': pygame.K_s,
@@ -181,3 +214,6 @@ class TetrisMode(GameMode):
                                         draw_position + pygame.Vector2(j * self.settings.tile_size + xoffset,
                                                                        i * self.settings.tile_size))
                         self.hold_piece.add(new_tile)
+            self.autoplay_counter = 0
+            self.autoplay_move = 0
+            self.moves = ListMoves(self.board, self.current_tetromino.name).list_moves()
