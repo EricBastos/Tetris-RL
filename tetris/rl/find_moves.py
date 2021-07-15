@@ -1,4 +1,6 @@
 from ..tiles import Tetromino, Board
+import numpy as np
+import queue
 
 
 class ListMoves:
@@ -7,89 +9,105 @@ class ListMoves:
         self.board = board
         self.name = name
         self.data = Tetromino.tetromino_lib[self.name]
+        self.moves_table = np.full((40, 12, 4), 'O', dtype=str)
+        self.count_table = np.full((40, 12, 4), 100, dtype=int)
+        self.table_queue = queue.SimpleQueue()
+        self.board_dict = {}
+        self.position_dict = {}
+        self.moves = []
 
     def list_moves(self):
-        moves = []
+        init_pos = [19, 4, 0, []]
+
         for rotation in range(4):
             for column in range(-1, 11):
-                consecutive = 0
                 for line in reversed(range(40)):
-                    if not self.check_collision(line, column, rotation):
-                        if consecutive > 0:
-                            break
-                        else:
-                            consecutive = 1
-                            print(f'Maybe {line} {column} {rotation}')
-                            move = []
-                            if not self.check_collision(line-1, column, rotation):
-                                self.treeRecursion(line-1, column, rotation, 'down', move, 0)
-                            if len(move) == 0 and not self.check_collision(line, column-1, rotation):
-                                self.treeRecursion(line, column-1, rotation, 'right', move, 0)
-                            if len(move) == 0 and not self.check_collision(line, column+1, rotation):
-                                self.treeRecursion(line, column+1, rotation, 'left', move, 0)
-                            if len(move) == 0:
-                                fine, new_column, new_line, new_rotation = self.check_rotation(line, column, rotation, 'clockwise')
-                                if fine:
-                                    self.treeRecursion(new_line, new_column, new_rotation, 'cclockwise', move, 0)
-                            if len(move) == 0:
-                                fine, new_column, new_line, new_rotation = self.check_rotation(line, column, rotation, 'cclockwise')
-                                if fine:
-                                    self.treeRecursion(new_line, new_column, new_rotation, 'clockwise', move, 0, (line==36 and column ==2 and rotation == 3))
-                            if len(move) > 0:
-                                move.append((line, column, rotation))
-                                moves.append(move)
-                                print(f'Found {line} {column} {rotation}')
-                            else:
-                                print(f'No luck {line} {column} {rotation}')
+                    if not self.check_collision(line, column, rotation) and \
+                            self.check_collision(line+1, column, rotation):
+                        self.position_dict[f'({line}, {column}, {rotation})'] = True
 
-                    else:
-                        consecutive = 0
-        return moves
+        self.moves_table[init_pos[0], init_pos[1]+1, init_pos[2]] = 'I'
+        self.count_table[init_pos[0], init_pos[1]+1, init_pos[2]] = 0
+        self.add_actions(init_pos)
 
-    def treeRecursion(self, line, column, rotation, last_dir, move, same_height, debug = False) -> bool:
-        if line == 19 and column == 4 and rotation == 0:
-            move.append(last_dir)
-            return True
-        if line < 19:
-            return False
-        if same_height == 5:
-            return False
-        if not self.check_collision(line - 1, column, rotation):
-            found = self.treeRecursion(line - 1, column, rotation, 'down', move, 0, debug)
-            if found:
-                move.append(last_dir)
-                return True
-        if len(move) == 0 and not self.check_collision(line, column - 1, rotation) and last_dir != 'left':
-            found = self.treeRecursion(line, column - 1, rotation, 'right', move, same_height+1, debug)
-            if found:
-                move.append(last_dir)
-                return True
-        if len(move) == 0 and not self.check_collision(line, column + 1, rotation) and last_dir != 'right':
-            found = self.treeRecursion(line, column + 1, rotation, 'left', move, same_height+1, debug)
-            if found:
-                move.append(last_dir)
-                return True
-        if len(move) == 0:
-            fine, new_column, new_line, new_rotation = self.check_rotation(line, column, rotation, 'clockwise')
-            if fine and last_dir != 'clockwise' and new_line <= line:
-                htemp = 0
-                if new_line == line:
-                    htemp = same_height+1
-                found = self.treeRecursion(new_line, new_column, new_rotation, 'cclockwise', move, htemp, debug)
-                if found:
-                    move.append(last_dir)
-                    return True
-        if len(move) == 0:
-            fine, new_column, new_line, new_rotation = self.check_rotation(line, column, rotation, 'cclockwise')
-            if fine and last_dir != 'cclockwise' and new_line <= line:
-                htemp = 0
-                if new_line == line:
-                    htemp = same_height+1
-                found = self.treeRecursion(new_line, new_column, new_rotation, 'clockwise', move, htemp, debug)
-                if found:
-                    move.append(last_dir)
-                    return True
-        return False
+        self.tableBFS()
+
+        return self.moves
+
+    def tableBFS(self):
+        while not self.table_queue.empty():
+            action = self.table_queue.get()
+            line = action[0]
+            column = action[1]
+            rotation = action[2]
+            command = action[3]
+            command_list = action[4]
+            position_key = f'({line}, {column}, {rotation})'
+            board_key = 1
+            if position_key in self.position_dict:
+                for i in range(len(self.data[rotation])):
+                    for j in range(len(self.data[rotation][i])):
+                        if self.data[rotation][i][j] != 0:
+                            board_key = board_key * 10000 + (i + line) * 100 + (j + column)
+                if board_key not in self.board_dict:
+                    self.board_dict[board_key] = True
+                    command_list.pop()
+                    self.moves.append(command_list+[(line, column, rotation)])
+
+            if command == 'A':
+                if not self.check_collision(line, column - 1, rotation):
+                    if self.count_table[line, column + 1, rotation] + 1 < self.count_table[line, column - 1 + 1, rotation]:
+                        self.count_table[line, column - 1 + 1, rotation] = self.count_table[line, column + 1, rotation] + 1
+                        self.moves_table[line, column - 1 + 1, rotation] = command
+                        # Adicionar ações
+                        new_pos = [line, column - 1, rotation, command_list]
+                        self.add_actions(new_pos)
+
+            elif command == 'S':
+                if not self.check_collision(line + 1, column, rotation):
+                    if self.count_table[line, column + 1, rotation] + 1 < self.count_table[line + 1, column + 1, rotation]:
+                        self.count_table[line + 1, column + 1, rotation] = self.count_table[line, column + 1, rotation] + 1
+                        self.moves_table[line + 1, column + 1, rotation] = command
+                        # Adicionar ações
+                        new_pos = [line + 1, column, rotation, command_list]
+                        self.add_actions(new_pos)
+
+            elif command == 'D':
+                if not self.check_collision(line, column + 1, rotation):
+                    if self.count_table[line, column + 1, rotation] + 1 < self.count_table[line, column + 1 + 1, rotation]:
+                        self.count_table[line, column + 1 + 1, rotation] = self.count_table[line, column + 1, rotation] + 1
+                        self.moves_table[line, column + 1 + 1, rotation] = command
+                        # Adicionar ações
+                        new_pos = [line, column + 1, rotation, command_list]
+                        self.add_actions(new_pos)
+
+            elif command == 'L':
+                fine, new_column, new_line, new_rotation = self.check_rotation(line, column, rotation, 'clockwise')
+                if fine:
+                    if self.count_table[line, column + 1, rotation] + 1 < self.count_table[new_line, new_column + 1, new_rotation]:
+                        self.count_table[new_line, new_column + 1, new_rotation] = self.count_table[line, column + 1, rotation] + 1
+                        self.moves_table[new_line, new_column + 1, new_rotation] = command
+                        # Adicionar ações
+                        new_pos = [new_line, new_column, new_rotation, command_list]
+                        self.add_actions(new_pos)
+
+            elif command == 'K':
+                fine, new_column, new_line, new_rotation = self.check_rotation(line, column, rotation, 'cclockwise')
+                if fine:
+                    if self.count_table[line, column + 1, rotation] + 1 < self.count_table[new_line, new_column + 1, new_rotation]:
+                        self.count_table[new_line, new_column + 1, new_rotation] = self.count_table[line, column + 1, rotation] + 1
+                        self.moves_table[new_line, new_column + 1, new_rotation] = command
+                        # Adicionar ações
+                        new_pos = [new_line, new_column, new_rotation, command_list]
+                        self.add_actions(new_pos)
+
+    def add_actions(self, info):
+
+        self.table_queue.put([info[0], info[1], info[2], 'A', info[3]+['A']])
+        self.table_queue.put([info[0], info[1], info[2], 'S', info[3]+['S']])
+        self.table_queue.put([info[0], info[1], info[2], 'D', info[3]+['D']])
+        self.table_queue.put([info[0], info[1], info[2], 'L', info[3]+['L']])
+        self.table_queue.put([info[0], info[1], info[2], 'K', info[3]+['K']])
 
     def check_collision(self, line, column, rotation):
         for i in range(len(self.data[rotation])):

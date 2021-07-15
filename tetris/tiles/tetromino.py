@@ -80,6 +80,10 @@ class Tetromino(pygame.sprite.Sprite):
         self.name = name
         self.rotation = 0
         self.settings = settings
+        self.debug_autoplay = settings.DEBUG_AUTOMOVE
+        self.debug_shadow_line = 10
+        self.debug_shadow_column = 10
+        self.debug_shadow_rotation = 0
         self.tileset = pygame.sprite.Group()
         self.shadow = pygame.sprite.Group()
         self.screen = screen
@@ -104,13 +108,11 @@ class Tetromino(pygame.sprite.Sprite):
         self.lock_down = 0
         self.movement_count = 0
 
-        self.debug_autplay = settings.DEBUG_AUTOMOVE
-
     def update(self, events):
         self.tileset.draw(self.screen)
         self.shadow.draw(self.screen)
         self.handle_input(events)
-        if not self.debug_autplay:
+        if not self.debug_autoplay:
             self.handle_gravity()
 
     def handle_gravity(self):
@@ -247,21 +249,28 @@ class Tetromino(pygame.sprite.Sprite):
 
     def calculate_shadow(self):
         shadow_line = self.line
+        shadow_column = self.column
+        shadow_rotation = self.rotation
+
         current_line = self.line
-        while not self.check_collision(self.rotation, (0, 1)):
+        while not self.check_collision(shadow_rotation, (0, 1)):
             shadow_line += 1
             self.line += 1
         self.line = current_line
-        pos = self.board_position + pygame.Vector2(self.column * self.settings.tile_size,
+        if self.debug_autoplay:
+            shadow_rotation = self.debug_shadow_rotation
+            shadow_line = self.debug_shadow_line
+            shadow_column = self.debug_shadow_column
+        pos = self.board_position + pygame.Vector2(shadow_column * self.settings.tile_size,
                                                    shadow_line * self.settings.tile_size)
         self.shadow.empty()
-        if shadow_line is not self.line:
-            for i in range(len(self.data[self.rotation])):
-                for j in range(len(self.data[self.rotation][i])):
-                    if self.data[self.rotation][i][j] != 0:
-                        new_tile = Tile(self.board.shadow_tile_lib[self.name],
-                                        pos + pygame.Vector2(j * self.settings.tile_size, i * self.settings.tile_size))
-                        self.shadow.add(new_tile)
+        #if shadow_line is not self.line:
+        for i in range(len(self.data[shadow_rotation])):
+            for j in range(len(self.data[shadow_rotation][i])):
+                if self.data[shadow_rotation][i][j] != 0:
+                    new_tile = Tile(self.board.shadow_tile_lib[self.name],
+                                    pos + pygame.Vector2(j * self.settings.tile_size, i * self.settings.tile_size))
+                    self.shadow.add(new_tile)
 
     def lock_piece(self):
         line_dif = 0

@@ -33,7 +33,7 @@ class TetrisMode(GameMode):
         self.debug_autoplay = settings.DEBUG_AUTOMOVE
         self.autoplay_timer = 0
         self.autoplay_counter = 0
-        self.autoplay_move = 0
+        self.autoplay_move = -1
         self.autoplaying = False
 
     def loop(self, events):
@@ -55,35 +55,42 @@ class TetrisMode(GameMode):
             self.handle_debug(events)
 
     def handle_debug(self, events):
+        pressed_x = False
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_z:
-                    self.autoplay_move = 0
+                    self.current_tetromino.line = 19
+                    self.current_tetromino.column = 4
+                    self.current_tetromino.rotation = 0
+                    self.current_tetromino.restart_tile()
                     self.autoplay_counter = 0
                     self.autoplay_timer = 0
+                    self.autoplay_move += 1
                     self.autoplaying = 1
                     print('Autoplay')
+                    print(f'{self.moves[self.autoplay_move][-1]}')
+                if event.key == pygame.K_x:
+                    pressed_x = True
         if self.autoplaying:
-            if self.autoplay_timer == 10:
+            self.current_tetromino.debug_shadow_line = self.moves[self.autoplay_move][-1][0]
+            self.current_tetromino.debug_shadow_column = self.moves[self.autoplay_move][-1][1]
+            self.current_tetromino.debug_shadow_rotation = self.moves[self.autoplay_move][-1][2]
+            if pressed_x:
                 name_to_key = {
-                    'down': pygame.K_s,
-                    'left': pygame.K_a,
-                    'right': pygame.K_d,
-                    'clockwise': pygame.K_l,
-                    'cclockwise': pygame.K_k
+                    'S': pygame.K_s,
+                    'A': pygame.K_a,
+                    'D': pygame.K_d,
+                    'L': pygame.K_l,
+                    'K': pygame.K_k
                 }
-                print(f'{len(self.moves[self.autoplay_move])} {self.autoplay_move} {self.autoplay_counter}')
+                print(f'Command: {self.moves[self.autoplay_move][self.autoplay_counter]}')
                 pygame.event.post(
                     pygame.event.Event(pygame.KEYDOWN, key=name_to_key[self.moves[self.autoplay_move][self.autoplay_counter]]))
                 self.autoplay_counter += 1
                 self.autoplay_timer = 0
+
                 if self.autoplay_counter == len(self.moves[self.autoplay_move])-1:
-                    self.autoplay_move += 1
                     self.autoplay_counter = 0
-                    self.current_tetromino.line = 19
-                    self.current_tetromino.column = 4
-                    self.current_tetromino.restart_tile()
-                if self.autoplay_move == len(self.moves):
                     self.autoplaying = 0
             else:
                 self.autoplay_timer += 1
@@ -117,12 +124,12 @@ class TetrisMode(GameMode):
             self.current_bag = self.next_bag.copy()
             random.shuffle(self.next_bag)
             self.current_bag_index = 0
-
-        self.current_tetromino = Tetromino(self.board, 'T',
+        self.current_tetromino = Tetromino(self.board, self.current_bag[self.current_bag_index],
                                            self.board_position, self.settings, self.screen)
         self.current_bag_index += 1
         self.moves = ListMoves(self.board, self.current_tetromino.name).list_moves()
         #print(self.moves)
+        #print(f'Found {len(self.moves)} moves')
 
     def evaluate_next_pieces(self):
         self.next_pieces.empty()
