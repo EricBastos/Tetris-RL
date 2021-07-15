@@ -67,6 +67,8 @@ class TetrisMode(GameMode):
                     self.autoplay_timer = 0
                     self.autoplay_move += 1
                     self.autoplaying = 1
+                    if self.autoplay_move == len(self.moves):
+                        self.autoplay_move = 0
                     print('Autoplay')
                     print(f'{self.moves[self.autoplay_move][-1]}')
                 if event.key == pygame.K_x:
@@ -85,11 +87,12 @@ class TetrisMode(GameMode):
                 }
                 print(f'Command: {self.moves[self.autoplay_move][self.autoplay_counter]}')
                 pygame.event.post(
-                    pygame.event.Event(pygame.KEYDOWN, key=name_to_key[self.moves[self.autoplay_move][self.autoplay_counter]]))
+                    pygame.event.Event(pygame.KEYDOWN,
+                                       key=name_to_key[self.moves[self.autoplay_move][self.autoplay_counter]]))
                 self.autoplay_counter += 1
                 self.autoplay_timer = 0
 
-                if self.autoplay_counter == len(self.moves[self.autoplay_move])-1:
+                if self.autoplay_counter == len(self.moves[self.autoplay_move]) - 1:
                     self.autoplay_counter = 0
                     self.autoplaying = 0
             else:
