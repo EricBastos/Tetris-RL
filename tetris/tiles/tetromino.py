@@ -5,6 +5,17 @@ import numpy as np
 
 
 class Tetromino(pygame.sprite.Sprite):
+
+    tetromino_encoding = {
+        'E': [0, 0, 0],
+        'I': [0, 0, 1],
+        'J': [0, 1, 0],
+        'L': [0, 1, 1],
+        'O': [1, 0, 0],
+        'S': [1, 0, 1],
+        'T': [1, 1, 0],
+        'Z': [1, 1, 1]
+    }
     tetromino_lib = {
         'I': {
             0: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
@@ -111,7 +122,8 @@ class Tetromino(pygame.sprite.Sprite):
 
     def update(self, events):
         self.tileset.draw(self.screen)
-        self.shadow.draw(self.screen)
+        if not self.debug_training:
+            self.shadow.draw(self.screen)
         if not self.debug_autoplay and not self.debug_training:
             self.handle_hold_key()
             self.handle_gravity()
@@ -214,6 +226,9 @@ class Tetromino(pygame.sprite.Sprite):
         return False
 
     def calculate_shadow(self):
+        if self.debug_training:
+            pass
+
         shadow_line = self.line
         shadow_column = self.column
         shadow_rotation = self.rotation
@@ -223,7 +238,7 @@ class Tetromino(pygame.sprite.Sprite):
             shadow_line += 1
             self.line += 1
         self.line = current_line
-        if self.debug_autoplay or self.debug_training:
+        if self.debug_autoplay:
             shadow_rotation = self.debug_shadow_rotation
             shadow_line = self.debug_shadow_line
             shadow_column = self.debug_shadow_column
@@ -248,14 +263,12 @@ class Tetromino(pygame.sprite.Sprite):
             for j in range(len(self.data[self.rotation][i])):
                 if self.data[self.rotation][i][j] != 0:
                     tiles_to_append.append((i + self.line, j + self.column))
-        pygame.event.post(
-            pygame.event.Event(pygame.USEREVENT + 1, tileList=tiles_to_append, tileName=self.name,
-                               tilePos=(self.line, self.column), tileRotation=self.rotation,
-                               lastMovement=self.last_movement, lastWallkick=self.last_wallkick))
+        feedback = [tiles_to_append, self.name, (self.line, self.column), self.rotation, self.last_movement, self.last_movement]
         self.tileset.empty()
         self.shadow.empty()
         self.last_movement = 'Left'
         self.last_wallkick = 0
+        return feedback
 
     def kill(self) -> None:
         super().kill()
