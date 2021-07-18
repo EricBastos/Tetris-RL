@@ -46,7 +46,7 @@ frame_counter = 0
 for episodes in range(1, NUM_EPISODES + 1):
 
     state, action_list = env.reset()
-    action, _ = agent.select_action(state, action_list)
+    action, _, advantage_means = agent.select_action(state, action_list)
     cumulative_reward = 0.0
     for move in range(1, NUM_MOVES+1):
         #clock.tick(720)
@@ -60,9 +60,10 @@ for episodes in range(1, NUM_EPISODES + 1):
                   .format(episodes, NUM_EPISODES, move, cumulative_reward, agent.epsilon))
             break
 
-        next_action, best_next_action = agent.select_action(next_state, action_list)
+        next_action, best_next_action, next_advantage_means = agent.select_action(next_state, action_list)
 
-        agent.append_experience(state, action, reward, next_state, best_next_action, done)
+        agent.append_experience(state, action, advantage_means, reward,
+                                next_state, best_next_action, next_advantage_means, done)
 
         state = next_state
         action = next_action

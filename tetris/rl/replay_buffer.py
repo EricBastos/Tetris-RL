@@ -7,16 +7,22 @@ class ReplayBuffer:
     def __init__(self, state_dim: int, size: int, batch_size: int = 32):
         self.state_action = np.zeros([size, state_dim], dtype=np.float32)
         self.best_next_state_action = np.zeros([size, state_dim], dtype=np.float32)
-        self.rewards_buffer = np.zeros([size], dtype=np.float32)
+        self.advantage_means = np.zeros(size, dtype=np.float32)
+        self.next_advantage_means = np.zeros(size, dtype=np.float32)
+        self.rewards_buffer = np.zeros(size, dtype=np.float32)
         self.done_buffer = np.zeros(size, dtype=np.float32)
         self.max_size, self.batch_size = size, batch_size
         self.ptr, self.size = 0, 0
 
-    def store(self, state_action: np.ndarray, reward: float, best_next_state_action: np.ndarray, done: bool):
+    def store(self, state_action: np.ndarray, advantage_means: float,
+              reward: float, best_next_state_action: np.ndarray,
+              next_advantage_means: float, done: bool):
         self.state_action[self.ptr] = state_action
         self.rewards_buffer[self.ptr] = reward
         self.best_next_state_action[self.ptr] = best_next_state_action
         self.done_buffer[self.ptr] = done
+        self.advantage_means[self.ptr] = advantage_means
+        self.next_advantage_means[self.ptr] = next_advantage_means
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
 
@@ -25,10 +31,14 @@ class ReplayBuffer:
         state_actions = np.array(self.state_action[idxs])
         rewards = np.array(self.rewards_buffer[idxs])
         best_next_state_action = np.array(self.best_next_state_action[idxs])
+        advantage_means = np.array(self.advantage_means[idxs])
+        next_advantage_means = np.array(self.next_advantage_means[idxs])
         done_buffer = np.array(self.done_buffer[idxs])
         return dict(state_actions=state_actions,
                     rewards=rewards,
                     best_next_state_actions=best_next_state_action,
+                    advantage_means=advantage_means,
+                    next_advantage_means=next_advantage_means,
                     dones=done_buffer)
 
     def __len__(self):

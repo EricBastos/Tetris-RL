@@ -39,8 +39,9 @@ class DQNAgent:
         # Custom Dueling networks
         self.model = DuelingDQN()  # DQN Network
         self.target_network = DuelingDQN()  # DDQN Network (Target)
-        self.model.build((None, self.state_size))   # Build custom network
-        self.target_network.build((None, self.state_size))
+
+        self.model.build([(None, 31), (None, 1)])   # Build custom network
+        self.target_network.build([(None, 31), (None, 1)])
         self.model.compile(loss=losses.Huber(), optimizer=optimizers.Adam(learning_rate=self.learning_rate))
 
         self.model.summary()
@@ -66,11 +67,13 @@ class DQNAgent:
         for i in range(len(action_list)):
             state_action = np.array([np.concatenate((state, np.hstack(action_list[i])))])
             state_action_batch.append(state_action[0])
-
-        Advantages = self.model.advantage(np.array(state_action_batch))   # Predict Advantage for each action
-        advantages_mean = np.mean(Advantages)   # Evaluate mean of advantages
-
-        Qs = self.model(np.array(state_action_batch))   # Choose action according to Q
+        state_action_batch = np.array(state_action_batch)
+        Advantages = self.model.advantage(state_action_batch)   # Predict Advantage for each action
+        # Evaluate mean of advantages and create vector to call model
+        advantage_means = np.mean(Advantages)
+        #print(np.array([state_action_batch, np.full((len(action_list), 1), advantage_means)]))
+        Qs = self.model([state_action_batch, np.full((len(action_list), 1), advantage_means)])   # Choose action according to Q
+        #print(Qs)
         best_action = action_list[np.argmax(Qs)]    # Choose the best action
         p = np.random.rand(1)   # Select action according to epsilon-greedy policy
         if p < 1 - self.epsilon:
@@ -78,14 +81,17 @@ class DQNAgent:
         else:
             selected_action = random.choice(action_list)
 
-        return selected_action, best_action # Return selected and best action (best action later for DDQN)
+        return selected_action, best_action, advantage_means # Return selected and best action (best action later for DDQN)
 
-    def append_experience(self, state, action, reward, next_state, best_next_action, done):
+    def append_experience(self, state, action, advantage_means, reward,
+                          next_state, best_next_action, next_advantages_mean, done):
 
         # Store experience (note that we need best_next_action for DDQN)
         self.replay_buffer.store(np.array([np.concatenate((state, np.hstack(action)))]),
+                                 advantage_means,
                                  reward,
                                  np.array([np.concatenate((next_state, np.hstack(best_next_action)))]),
+                                 next_advantages_mean,
                                  done)
 
     def replay(self, batch_size):
@@ -104,8 +110,10 @@ class DQNAgent:
 
         # Experience info
         state_actions = minibatch['state_actions'].reshape(-1, self.state_size)
+        advantage_means = minibatch['advantage_means'].reshape(-1, 1)
         rewards = minibatch['rewards'].reshape(-1, 1)
         best_next_state_actions = minibatch['best_next_state_actions'].reshape(-1, self.state_size)
+        next_advantage_means = minibatch['next_advantage_means'].reshape(-1, 1)
         dones = minibatch['dones'].reshape(-1, 1)
 
         # Gamma vector according to done vector
@@ -113,13 +121,15 @@ class DQNAgent:
 
         # Fixed Q target: use target_network to evaluate Q(s_{t+1},a_{t+1})
         # DDQN: a_{t+1} is evaluated from DQN and used on target_network
-        targets = rewards + np.multiply(gammas, self.target_network(best_next_state_actions))
 
-        # Train using batch
-        history = self.model.fit(state_actions, targets, batch_size=batch_size, epochs=1, verbose=0, sample_weight=ws)
+        targets = rewards + np.multiply(gammas, self.target_network([best_next_state_actions, next_advantage_means]))
+        #print('Fitting')
+        #(state_actions[0])
+        #print(advantage_means)
+        history = self.model.fit([state_actions, advantage_means], targets, batch_size=batch_size, epochs=1, verbose=0, sample_weight=ws)
 
         # Calculate TD error and update PER priorities
-        error = np.vectorize(_huber_loss)(targets - self.model(state_actions))
+        error = np.vectorize(_huber_loss)(targets - self.model([state_actions, advantage_means]))
         new_priorities = np.array(error + self.buffer_epsilon)
         self.replay_buffer.update_priorities(idxs, new_priorities)
 

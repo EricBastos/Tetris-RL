@@ -21,8 +21,11 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         self.sum_tree = SumSegmentTree(tree_capacity)
         self.min_tree = MinSegmentTree(tree_capacity)
 
-    def store(self, state_action: np.ndarray, reward: float, best_next_state_action: np.ndarray, done: bool):
-        super(PrioritizedReplayBuffer, self).store(state_action, reward, best_next_state_action, done)
+    def store(self, state_action: np.ndarray, advantages_means: float,
+              reward: float, best_next_state_action: np.ndarray,
+              next_advantages_means: float, done: bool):
+        super(PrioritizedReplayBuffer, self).store(state_action, advantages_means, reward,
+                                                   best_next_state_action, next_advantages_means, done)
 
         self.sum_tree[self.tree_ptr] = self.max_priority ** self.alpha
         self.min_tree[self.tree_ptr] = self.max_priority ** self.alpha
@@ -32,8 +35,10 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         assert len(self) >= self.batch_size
         idxs = self._sample_proportional()
         state_actions = np.array(self.state_action[idxs])
+        advantage_means = np.array(self.advantage_means[idxs])
         rewards = np.array(self.rewards_buffer[idxs])
         best_next_state_action = np.array(self.best_next_state_action[idxs])
+        next_advantage_means = np.array(self.next_advantage_means[idxs])
         done_buffer = np.array(self.done_buffer[idxs])
         ws = np.array([self._calculate_weight(i, beta) for i in idxs])
         return dict(state_actions=state_actions,
@@ -41,7 +46,9 @@ class PrioritizedReplayBuffer(ReplayBuffer):
                     best_next_state_actions=best_next_state_action,
                     dones=done_buffer,
                     weights=ws,
-                    idxs=idxs)
+                    idxs=idxs,
+                    advantage_means=advantage_means,
+                    next_advantage_means=next_advantage_means)
 
     def update_priorities(self, idxs: List[int], priorities: np.ndarray):
         assert len(idxs) == len(priorities)

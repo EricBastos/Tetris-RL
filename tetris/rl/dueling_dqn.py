@@ -6,7 +6,7 @@ from tensorflow.keras.optimizers import Adam
 import numpy as np
 
 
-class DuelingDQN(keras.Model, ABC):
+class DuelingDQN(keras.models.Model, ABC):
     def __init__(self):
         super(DuelingDQN, self).__init__()
 
@@ -20,11 +20,12 @@ class DuelingDQN(keras.Model, ABC):
         self.A = keras.layers.Dense(1, activation=keras.activations.linear)
 
     def call(self, inputs, training=None, mask=None):
+        inputs = list(inputs)
         if not isinstance(inputs, list):
             raise ValueError('This layer should be called on a list of inputs.')
-
         state = inputs[0]
         advantage_mean = inputs[1]
+
         x = self.dense1(state)
         x = self.dense2(x)
 
@@ -35,11 +36,13 @@ class DuelingDQN(keras.Model, ABC):
         A = self.A(Ax)
 
         Q = V + A - advantage_mean
-
         return Q
 
     def advantage(self, state):
+        #print(state.shape)
+
         x = self.dense1(state)
         x = self.dense2(x)
+        x = self.denseA(x)
         A = self.A(x)
         return A
