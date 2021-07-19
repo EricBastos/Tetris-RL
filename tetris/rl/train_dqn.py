@@ -82,9 +82,10 @@ for episodes in range(1, NUM_EPISODES + 1):
         plt.plot(return_history, 'b')
         plt.xlabel('Episode')
         plt.ylabel('Return')
-        plt.show(block=False)
-        plt.pause(0.1)
-        plt.savefig('dqn_training.png', format='png')
+        try:
+            plt.savefig('dqn_training.png', format='png')
+        except OSError:
+            continue
         # Saving the model to disk
         agent.save("tetris_weights.h5")
 plt.pause(1.0)

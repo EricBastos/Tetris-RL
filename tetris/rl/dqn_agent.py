@@ -1,6 +1,5 @@
 import random
 
-import keras
 import numpy as np
 from keras import models, layers, optimizers, activations, losses
 from prioritized_replay_buffer import PrioritizedReplayBuffer
@@ -17,7 +16,7 @@ class DQNAgent:
     """
 
     def __init__(self, gamma=0.99, epsilon=0.5, epsilon_min=0.01,
-                 epsilon_decay=0.985, learning_rate=0.0005,
+                 epsilon_decay=0.99, learning_rate=0.001,
                  target_count=500, alpha=0.2, beta=0.6, buffer_epsilon=1e-6):
 
         self.state_size = 31    # Matrix and pieces (bitstream to 28 uint8) + action (3 bytes)
@@ -25,7 +24,7 @@ class DQNAgent:
 
         self.beta = beta    # Beta for PER
         self.buffer_epsilon = buffer_epsilon    # Min td error to guarantee every experience has a chance
-        self.replay_buffer = PrioritizedReplayBuffer(self.state_size, 6144, batch_size=32, alpha=alpha) # PER
+        self.replay_buffer = PrioritizedReplayBuffer(self.state_size, 2048, batch_size=32, alpha=alpha) # PER
 
         self.gamma = gamma  # For Q learning
         self.epsilon = epsilon  # Epsilon-greedy action policy
@@ -42,7 +41,8 @@ class DQNAgent:
 
         self.model.build([(None, 31), (None, 1)])   # Build custom network
         self.target_network.build([(None, 31), (None, 1)])
-        self.model.compile(loss=losses.Huber(), optimizer=optimizers.Adam(learning_rate=self.learning_rate))
+        self.model.compile(loss=losses.Huber(), optimizer=optimizers.Adam(learning_rate=self.learning_rate,
+                                                                          clipnorm=7))
 
         self.model.summary()
 

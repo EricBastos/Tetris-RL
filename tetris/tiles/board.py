@@ -121,7 +121,7 @@ class Board(pygame.sprite.Sprite):
         cleared_lines = 0
         new_board = None
         last_cleared_line = 0
-        perfect_clear = True
+        perfect_clear = False
         tspin = False
         for i in range(19, 40):
             line_complete = True
@@ -137,6 +137,7 @@ class Board(pygame.sprite.Sprite):
                     new_board = self.matrix[last_cleared_line:i]
                 last_cleared_line = i + 1
         if cleared_lines > 0:
+            perfect_clear = True
             if new_board is not None:
                 new_board = np.vstack((new_board, self.matrix[last_cleared_line:41]))
             for new_line in range(cleared_lines):

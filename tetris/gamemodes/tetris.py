@@ -46,6 +46,8 @@ class TetrisMode(GameMode):
 
         self.training_mode = settings.TRAINING_MODE
 
+        self.frames = 0
+
     def loop(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -64,8 +66,8 @@ class TetrisMode(GameMode):
                         self.current_tetromino.rotate(+1, 'Rotate Clockwise')
                     elif event.key == pygame.K_SPACE:
                         fb = self.current_tetromino.lock_piece()
-                        if self.tile_placed(fb[0], fb[1], fb[2], fb[3], fb[4], fb[5]):
-                            return
+                        self.tile_placed(fb[0], fb[1], fb[2], fb[3], fb[4], fb[5])
+                        return
                 else:
                     if event.key == pygame.K_LSHIFT:
                         self.hold()
@@ -144,63 +146,113 @@ class TetrisMode(GameMode):
 
     def tile_placed(self, tile_list, tile_name, tile_position, tile_rotation, last_movement, last_wallkick):
         garbage_sent = 0
-        reward = 1
         for tile in tile_list:
             self.board.change(tile, tile_name)
         cleared_lines, pc, tspin = \
             self.board.clear_lines(tile_name, tile_position, tile_rotation, last_movement, last_wallkick)
-
-        if self.board.matrix[20][4] != 'E' or self.board.matrix[20][5] != 'E' or \
-                self.board.matrix[20][6] != 'E' or self.board.matrix[20][7] != 'E':
-            self.reset()
-            return -1000
+        #print(f'{cleared_lines}, {pc}, {tspin}')
+        if self.board.matrix[20][1] != 'E' or \
+                self.board.matrix[20][2] != 'E' or \
+                self.board.matrix[20][3] != 'E' or \
+                self.board.matrix[20][4] != 'E' or \
+                self.board.matrix[20][5] != 'E' or \
+                self.board.matrix[20][6] != 'E' or \
+                self.board.matrix[20][7] != 'E' or \
+                self.board.matrix[20][8] != 'E' or \
+                self.board.matrix[20][9] != 'E' or \
+                self.board.matrix[20][10] != 'E':
+            return -10000*np.exp(-self.frames / 100), True
 
         self.generate_tetromino()
         self.evaluate_next_pieces()
         self.has_held = False
+        back_to_back = False
         if cleared_lines > 0:
             self.combo += 1
             if cleared_lines == 4 or tspin:
                 if self.back_to_back:
-                    # print('Back to Back')
+                    back_to_back = True
                     garbage_sent += 1
-                    reward += 10
                 self.back_to_back = True
             else:
                 self.back_to_back = False
             # print(f'Lines Cleared: {cleared_lines}, combo: {self.combo}')
             if 2 <= self.combo <= 3:
                 garbage_sent += 1
-                reward += 10
             elif 4 <= self.combo <= 5:
                 garbage_sent += 2
-                reward += 30
             elif 6 <= self.combo <= 7:
                 garbage_sent += 3
-                reward += 60
             elif 8 <= self.combo <= 10:
                 garbage_sent += 4
-                reward += 100
-            else:
+            elif self.combo > 10:
                 garbage_sent += 5
-                reward += 150
 
             if tspin:
                 garbage_sent += 2 * cleared_lines
-                reward += 40 * cleared_lines*cleared_lines
             else:
                 if cleared_lines == 4:
                     garbage_sent += 4
-                    reward += 100
                 else:
                     garbage_sent += cleared_lines - 1
-                    reward += 5*cleared_lines*cleared_lines
             if pc:
                 garbage_sent = 10
-                reward += 500
         else:
             self.combo = -1
+        return self.reward_engineering(cleared_lines, pc, tspin, self.combo, back_to_back), False
+
+    def reward_engineering(self, cleared_lines, pc, tspin, combo, back_to_back):
+        reward = 0
+        if back_to_back:
+            print('back to back')
+            reward += 50
+
+        if 2 <= combo <= 3:
+            print(f'combo {combo}')
+            reward += 2
+        elif 4 <= combo <= 5:
+            print(f'combo {combo}')
+            reward += 6
+        elif 6 <= combo <= 7:
+            print(f'combo {combo}')
+            reward += 15
+        elif 8 <= combo <= 10:
+            print(f'combo {combo}')
+            reward += 20
+        elif combo > 10:
+            print(f'combo {combo}')
+            reward += 30
+
+        if tspin:
+            print(f'tspin {cleared_lines}')
+            reward += 8 * cleared_lines ** 4
+        else:
+            if cleared_lines == 4:
+                reward += 400
+            else:
+                reward += cleared_lines ** 4
+            if cleared_lines:
+                print(f'cleared {cleared_lines}')
+        if pc:
+            print('pc')
+            reward += 1000
+
+        column_height = self.get_stack_height_info()
+        #mean_height = np.mean(column_height)
+        #higher_columns = np.square(column_height - mean_height*np.ones(10)).sum()
+        #reward -= higher_columns/5
+        #reward -= 8/5*(np.max(column_height) - np.min(column_height))**2
+        #reward -= np.max(column_height)**2
         return reward
+
+    def get_stack_height_info(self):
+        column_height = np.zeros(10)
+        for j in range(1, 11):
+            for i in range(20, 40):
+                if self.board.matrix[i][j] != 'E':
+                    column_height[j - 1] = 40-i
+                    break
+        return column_height
 
     def generate_tetromino(self):
         if self.current_bag_index == 7:
@@ -293,25 +345,28 @@ class TetrisMode(GameMode):
         self.back_to_back = False
         self.combo = -1
 
+        self.frames = 0
+
         state, moves = self.extract_state()
         return state, moves
 
     def step(self, action):
+        self.frames += 1
         if action[2] != 4:
             new_line, new_column, new_rotation = action
             self.current_tetromino.position_tile(new_line, new_column, new_rotation)
             fb = self.current_tetromino.lock_piece()
-            reward = self.tile_placed(fb[0], fb[1], fb[2], fb[3], fb[4], fb[5])
+            reward, done = self.tile_placed(fb[0], fb[1], fb[2], fb[3], fb[4], fb[5])
         else:
             self.hold()
-            reward = 0
+            reward, done = self.reward_engineering(0, False, False, 0, False), False
 
         state, moves = self.extract_state()
-        return state, reward, (reward == -1000 or len(moves) == 0), moves
+        return state, reward, (done or len(moves) == 0), moves
 
     def extract_state(self):
         slice_matrix = self.board.matrix[20:40, 1:11]
-        line_matrix = np.array(list(map(ord,np.hstack(slice_matrix))))
+        line_matrix = np.array(list(map(ord, np.hstack(slice_matrix))))
         all_pieces = self.current_bag + self.next_bag
         next_pieces_name = all_pieces[self.current_bag_index : self.current_bag_index+5]
 
