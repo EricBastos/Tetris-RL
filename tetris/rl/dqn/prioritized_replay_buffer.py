@@ -8,8 +8,8 @@ from typing import List
 
 class PrioritizedReplayBuffer(ReplayBuffer):
 
-    def __init__(self, state_dim: int, size: int, batch_size: int = 32, alpha: float = 0.6):
-        super(PrioritizedReplayBuffer, self).__init__(state_dim, size, batch_size)
+    def __init__(self, size: int, batch_size: int = 32, alpha: float = 0.6):
+        super(PrioritizedReplayBuffer, self).__init__(size, batch_size)
         self.max_priority = 1.0
         self.tree_ptr = 0
         self.alpha = alpha
@@ -21,12 +21,11 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         self.sum_tree = SumSegmentTree(tree_capacity)
         self.min_tree = MinSegmentTree(tree_capacity)
 
-    def store(self, state_action: np.ndarray, advantages_means: float,
-              reward: float, best_next_state_action: np.ndarray,
-              next_advantages_means: float, done: bool):
-        super(PrioritizedReplayBuffer, self).store(state_action, advantages_means, reward,
-                                                   best_next_state_action, next_advantages_means, done)
-
+    def store(self, matrix: np.ndarray, piece: np.ndarray, action: np.ndarray,
+              reward: float, next_matrix: np.ndarray, next_piece: np.ndarray,
+              done: bool, next_mask: np.ndarray):
+        super(PrioritizedReplayBuffer, self).store(matrix, piece, action, reward,
+                                                   next_matrix, next_piece, done, next_mask)
         self.sum_tree[self.tree_ptr] = self.max_priority ** self.alpha
         self.min_tree[self.tree_ptr] = self.max_priority ** self.alpha
         self.tree_ptr = (self.tree_ptr + 1) % self.max_size
@@ -34,21 +33,25 @@ class PrioritizedReplayBuffer(ReplayBuffer):
     def sample_batch(self, beta: float = 0.4):
         assert len(self) >= self.batch_size
         idxs = self._sample_proportional()
-        state_actions = np.array(self.state_action[idxs])
-        advantage_means = np.array(self.advantage_means[idxs])
+        matrixes = np.array(self.matrix_buffer[idxs])
+        pieces = np.array(self.pieces_buffer[idxs])
+        actions = np.array(self.action_buffer[idxs])
         rewards = np.array(self.rewards_buffer[idxs])
-        best_next_state_action = np.array(self.best_next_state_action[idxs])
-        next_advantage_means = np.array(self.next_advantage_means[idxs])
+        next_matrixes = np.array(self.next_matrix_buffer[idxs])
+        next_pieces = np.array(self.next_pieces_buffer[idxs])
         done_buffer = np.array(self.done_buffer[idxs])
+        next_mask_buffer = np.array(self.next_mask_buffer[idxs])
         ws = np.array([self._calculate_weight(i, beta) for i in idxs])
-        return dict(state_actions=state_actions,
+        return dict(matrixes=matrixes,
+                    pieces=pieces,
+                    actions=actions,
                     rewards=rewards,
-                    best_next_state_actions=best_next_state_action,
+                    next_matrixes=next_matrixes,
+                    next_pieces=next_pieces,
                     dones=done_buffer,
                     weights=ws,
                     idxs=idxs,
-                    advantage_means=advantage_means,
-                    next_advantage_means=next_advantage_means)
+                    next_masks=next_mask_buffer)
 
     def update_priorities(self, idxs: List[int], priorities: np.ndarray):
         assert len(idxs) == len(priorities)

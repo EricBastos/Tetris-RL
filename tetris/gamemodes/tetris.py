@@ -23,6 +23,7 @@ class TetrisMode(GameMode):
         self.hold_piece = pygame.sprite.Group()
         self.hold_tetromino = 'E'
         self.has_held = False
+        self.lines_cleared = 0
 
         self.current_tetromino = None
         self.current_bag_index = 0
@@ -151,17 +152,17 @@ class TetrisMode(GameMode):
         cleared_lines, pc, tspin = \
             self.board.clear_lines(tile_name, tile_position, tile_rotation, last_movement, last_wallkick)
         #print(f'{cleared_lines}, {pc}, {tspin}')
-        if self.board.matrix[20][1] != 'E' or \
-                self.board.matrix[20][2] != 'E' or \
-                self.board.matrix[20][3] != 'E' or \
-                self.board.matrix[20][4] != 'E' or \
-                self.board.matrix[20][5] != 'E' or \
-                self.board.matrix[20][6] != 'E' or \
-                self.board.matrix[20][7] != 'E' or \
-                self.board.matrix[20][8] != 'E' or \
-                self.board.matrix[20][9] != 'E' or \
-                self.board.matrix[20][10] != 'E':
-            return -10000*np.exp(-self.frames / 100), True
+        if self.board.matrix[21][1] != 'E' or \
+                self.board.matrix[21][2] != 'E' or \
+                self.board.matrix[21][3] != 'E' or \
+                self.board.matrix[21][4] != 'E' or \
+                self.board.matrix[21][5] != 'E' or \
+                self.board.matrix[21][6] != 'E' or \
+                self.board.matrix[21][7] != 'E' or \
+                self.board.matrix[21][8] != 'E' or \
+                self.board.matrix[21][9] != 'E' or \
+                self.board.matrix[21][10] != 'E':
+            return 0, True
 
         self.generate_tetromino()
         self.evaluate_next_pieces()
@@ -205,44 +206,43 @@ class TetrisMode(GameMode):
         reward = 0
         if back_to_back:
             print('back to back')
-            reward += 50
+            reward += 10
 
         if 2 <= combo <= 3:
             print(f'combo {combo}')
-            reward += 2
+            reward += 1
         elif 4 <= combo <= 5:
             print(f'combo {combo}')
-            reward += 6
+            reward += 3
         elif 6 <= combo <= 7:
             print(f'combo {combo}')
-            reward += 15
+            reward += 6
         elif 8 <= combo <= 10:
             print(f'combo {combo}')
-            reward += 20
+            reward += 10
         elif combo > 10:
             print(f'combo {combo}')
-            reward += 30
+            reward += 15
 
         if tspin:
             print(f'tspin {cleared_lines}')
-            reward += 8 * cleared_lines ** 4
+            reward += 7.5 * cleared_lines ** 2
         else:
             if cleared_lines == 4:
-                reward += 400
+                reward += 20
             else:
-                reward += cleared_lines ** 4
+                reward += cleared_lines ** 2
             if cleared_lines:
+                self.lines_cleared += cleared_lines
                 print(f'cleared {cleared_lines}')
         if pc:
             print('pc')
-            reward += 1000
-
+            reward += 100
+        reward += 5*self.lines_cleared
         column_height = self.get_stack_height_info()
-        #mean_height = np.mean(column_height)
-        #higher_columns = np.square(column_height - mean_height*np.ones(10)).sum()
-        #reward -= higher_columns/5
-        #reward -= 8/5*(np.max(column_height) - np.min(column_height))**2
-        #reward -= np.max(column_height)**2
+        reward -= 0.3 * np.sum(column_height)
+        for i in range(9):
+            reward -= 0.1 * np.abs(column_height[i]-column_height[i+1])
         return reward
 
     def get_stack_height_info(self):
@@ -263,7 +263,7 @@ class TetrisMode(GameMode):
                                            self.board_position, self.settings, self.screen)
         self.current_bag_index += 1
         self.moves = ListMoves(self.board, self.current_tetromino.name).list_moves()
-        # print(self.moves)
+        #print(self.moves)
         # print(f'Found {len(self.moves)} moves')
 
     def evaluate_next_pieces(self):
@@ -318,12 +318,12 @@ class TetrisMode(GameMode):
             self.autoplay_move = 0
             self.moves = ListMoves(self.board, self.current_tetromino.name).list_moves()
 
-    def reset(self):
+    def reset(self, type):
         self.autoplay_timer = 0
         self.autoplay_counter = 0
         self.autoplay_move = 0
         self.autoplaying = False
-
+        self.lines_cleared = 0
         self.board.board.empty()
         self.board = Board(self.board_position, self.settings, self.screen)
 
@@ -347,10 +347,20 @@ class TetrisMode(GameMode):
 
         self.frames = 0
 
-        state, moves = self.extract_state()
+        return self.extract_state(type)
+
+    def extract_state(self, type):
+        if type == 'dqn':
+            state, moves = self.extract_state_dqn()
+        elif type == 'ppo':
+            state = self.extract_ppo_state()
+            moves = []
+        else:
+            state = []
+            moves = []
         return state, moves
 
-    def step(self, action):
+    def step(self, action, type):
         self.frames += 1
         if action[2] != 4:
             new_line, new_column, new_rotation = action
@@ -361,10 +371,17 @@ class TetrisMode(GameMode):
             self.hold()
             reward, done = self.reward_engineering(0, False, False, 0, False), False
 
-        state, moves = self.extract_state()
-        return state, reward, (done or len(moves) == 0), moves
+        state, moves = self.extract_state(type)
 
-    def extract_state(self):
+        if len(self.moves) == 0:
+            done = True
+
+        if done:
+            reward = -4500 * np.exp(-self.frames / 25)
+
+        return state, reward, done, moves
+
+    def extract_state_dqn(self):
         slice_matrix = self.board.matrix[20:40, 1:11]
         line_matrix = np.array(list(map(ord, np.hstack(slice_matrix))))
         all_pieces = self.current_bag + self.next_bag
@@ -389,3 +406,31 @@ class TetrisMode(GameMode):
         state_data = np.packbits(bit_data).astype(np.float32)
         #print(len(moves))
         return state_data, moves
+
+    def extract_ppo_state(self):
+        slice_matrix = self.board.matrix[20:40, 1:11]
+        line_matrix = np.array(list(map(ord, np.hstack(slice_matrix))))
+        line_matrix = line_matrix != 69
+        line_matrix = line_matrix.astype(np.float32)
+        state_matrix = line_matrix.reshape((20, 10, 1))
+
+        all_pieces = self.current_bag + self.next_bag
+        next_pieces_name = all_pieces[self.current_bag_index: self.current_bag_index + 5]
+
+        action_mask = np.ones((4, 20, 11))
+        #pos_only = []
+        for move in self.moves:
+            line, column, rotation = move[-1]
+            if line >= 20:
+                #pos_only.append(move[-1])
+                column += 1
+                line -= 20
+                action_mask[rotation, line, column] = 0
+        #print(pos_only)
+        action_mask = action_mask.reshape((-1))
+        action_mask = np.append(action_mask, self.has_held)
+        pieces = [self.current_tetromino.name] + next_pieces_name + [self.hold_tetromino]
+        pieces = np.array(list(map(ord, pieces)))
+        state_info = [state_matrix, pieces, action_mask]
+
+        return state_info

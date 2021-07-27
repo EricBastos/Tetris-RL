@@ -1,5 +1,6 @@
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 from tensorflow.python.ops.numpy_ops import np_config
 
 from dqn_agent import DQNAgent
@@ -33,9 +34,9 @@ env = TetrisMode(screen, settings)
 agent = DQNAgent()
 
 # Checking if weights from previous learning session exists
-if os.path.exists('tetris_weights.h5'):
+if os.path.exists('tetris_weights_dqn.h5'):
     print('Loading weights from previous learning session.')
-    agent.load("tetris_weights.h5")
+    agent.load("tetris_weights_dqn.h5")
 else:
     print('No weights found from previous learning session.')
 done = False
@@ -45,47 +46,47 @@ episode = 0
 frame_counter = 0
 for episodes in range(1, NUM_EPISODES + 1):
 
-    state, action_list = env.reset()
-    action, _, advantage_means = agent.select_action(state, action_list)
+    state, _ = env.reset('ppo')
     cumulative_reward = 0.0
     for move in range(1, NUM_MOVES+1):
         #clock.tick(720)
-        env.loop(pygame.event.get())
+        matrix, pieces, mask = state
+        merged_state = [matrix[np.newaxis], pieces[np.newaxis]]
+        action = agent.select_action(merged_state, mask)
         frame_counter += 1
-        next_state, reward, done, action_list = env.step(action)
+        next_state, reward, done, _ = env.step(action, 'ppo')
 
-        cumulative_reward = agent.gamma * cumulative_reward + reward
-        if done:
-            print("episode: {}/{}, move: {}, score: {:.6}, epsilon: {:.3}"
-                  .format(episodes, NUM_EPISODES, move, cumulative_reward, agent.epsilon))
-            break
-
-        next_action, best_next_action, next_advantage_means = agent.select_action(next_state, action_list)
-
-        agent.append_experience(state, action, advantage_means, reward,
-                                next_state, best_next_action, next_advantage_means, done)
+        next_matrix, next_pieces, next_mask = next_state
+        agent.append_experience(matrix, pieces, action, reward, next_matrix, next_pieces, done, next_mask)
 
         state = next_state
-        action = next_action
-
+        env.loop(pygame.event.get())
         agent.update_beta(frame_counter, 100000)
         # Accumulate reward
 
         pygame.display.update()
+
+        cumulative_reward = agent.gamma * cumulative_reward + reward
+
+        if done:
+            print("episode: {}/{}, move: {}, score: {:.6}"
+                  .format(episodes, NUM_EPISODES, move, cumulative_reward))
+            break
+
         # We only update the policy if we already have enough experience in memory
         if len(agent.replay_buffer) > 2 * batch_size:
-            agent.replay(batch_size)
+            agent.replay()
     return_history.append(cumulative_reward)
-    agent.update_epsilon()
+    #agent.update_epsilon()
     # Every 10 episodes, update the plot for training monitoring
     if episodes % 10 == 0:
         plt.plot(return_history, 'b')
         plt.xlabel('Episode')
         plt.ylabel('Return')
         try:
-            plt.savefig('dqn_training.png', format='png')
+            plt.savefig('dqn_training_dqn.png', format='png')
         except OSError:
             continue
         # Saving the model to disk
-        agent.save("tetris_weights.h5")
+        agent.save("tetris_weights_dqn.h5")
 plt.pause(1.0)
