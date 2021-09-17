@@ -2,8 +2,10 @@
 ============================================
 Modern Tetris environment for Reinforcement Learning. Supports twists (spin moves, such as t-spin)
 and wall kicks. Useful for training an AI to play in tetris vs. mode.
+Requires pygame.
+![GifJogo](./tetris/images/tetris.gif)
 
-How to use as RL environment
+How to use as RL environment.
 ---------------------------------------------
 Simply instantiate a new game
 ```
