@@ -54,4 +54,4 @@ run = True
 while run:
     env.render()
 ```
-Use WASD to move, KL to rotate and LSHIFT to hold
+Use WASD to move, SPACEBAR to hard drop, KL to rotate and LSHIFT to hold
