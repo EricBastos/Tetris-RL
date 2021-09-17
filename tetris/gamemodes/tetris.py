@@ -99,6 +99,7 @@ class TetrisMode(GameMode):
                 self.autoplay_timer += 1
 
     def tile_placed(self, tile_list, tile_name, tile_position, tile_rotation, last_movement, last_wallkick):
+        self.autoplay_move = 0
         for tile in tile_list:
             self.board.change(tile, tile_name)
         cleared_lines, pc, tspin = \
@@ -121,6 +122,47 @@ class TetrisMode(GameMode):
                 print('Perfect Clear')
         else:
             self.combo = -1
+        if self.board.matrix[21][1] != 'E' or \
+                self.board.matrix[21][2] != 'E' or \
+                self.board.matrix[21][3] != 'E' or \
+                self.board.matrix[21][4] != 'E' or \
+                self.board.matrix[21][5] != 'E' or \
+                self.board.matrix[21][6] != 'E' or \
+                self.board.matrix[21][7] != 'E' or \
+                self.board.matrix[21][8] != 'E' or \
+                self.board.matrix[21][9] != 'E' or \
+                self.board.matrix[21][10] != 'E':
+            self.reset()
+
+    def reset(self):
+
+        self.autoplay_timer = 0
+        self.autoplay_counter = 0
+        self.autoplay_move = 0
+        self.autoplaying = False
+        self.lines_cleared = 0
+        self.board.board.empty()
+        self.board = Board(self.board_position, self.settings, self.screen)
+
+        self.next_pieces.empty()
+        self.hold_piece.empty()
+        self.hold_tetromino = 'E'
+        self.has_held = False
+
+        self.current_tetromino = None
+        self.current_bag_index = 0
+        self.current_bag = ['I', 'J', 'L', 'O', 'S', 'T', 'Z']
+        self.next_bag = self.current_bag
+        random.shuffle(self.current_bag)
+        random.shuffle(self.next_bag)
+
+        self.generate_tetromino()
+        self.evaluate_next_pieces()
+
+        self.back_to_back = False
+        self.combo = -1
+
+        self.frames = 0
 
     def generate_tetromino(self):
         if self.current_bag_index == 7:
