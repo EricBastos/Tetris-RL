@@ -3,12 +3,23 @@ import pygame
 from ..tiles import Board, Tetromino, Tile
 from ..rl import ListMoves
 import random
+import numpy as np
+from tetris import settings
 
 
 class TetrisMode(GameMode):
 
-    def __init__(self, screen, settings):
+    def __init__(self):
+        pygame.init()
+
+        self.clock = pygame.time.Clock()
+
+        screen = pygame.display.set_mode(
+            (settings.screen_width, settings.screen_height))
+
+        pygame.display.set_caption(settings.TITLE)
         super().__init__(screen, settings)
+        self.frames = 0
         self.screen = screen
         self.board_position = pygame.Vector2((settings.screen_width - settings.board_width) / 2 - settings.tile_size,
                                         (-settings.tile_size * 41) + settings.screen_height)
@@ -36,7 +47,8 @@ class TetrisMode(GameMode):
         self.autoplay_move = -1
         self.autoplaying = False
 
-    def loop(self, events):
+    def render(self):
+        events = pygame.event.get()
         for event in events:
             if event.type == pygame.USEREVENT+1:
                 self.tile_placed(event.tileList, event.tileName,
@@ -53,6 +65,10 @@ class TetrisMode(GameMode):
         self.hold_piece.draw(self.screen)
         if self.debug_autoplay:
             self.handle_debug(events)
+
+        pygame.display.update()
+
+        self.clock.tick(settings.FPS)
 
     def handle_debug(self, events):
         pressed_x = False
@@ -100,6 +116,8 @@ class TetrisMode(GameMode):
 
     def tile_placed(self, tile_list, tile_name, tile_position, tile_rotation, last_movement, last_wallkick):
         self.autoplay_move = 0
+        done = False
+        cmb = 0
         for tile in tile_list:
             self.board.change(tile, tile_name)
         cleared_lines, pc, tspin = \
@@ -109,6 +127,7 @@ class TetrisMode(GameMode):
         self.has_held = False
         if cleared_lines > 0:
             self.combo += 1
+            cmb = self.combo
             if cleared_lines == 4 or tspin:
                 if self.back_to_back:
                     print('Back to Back')
@@ -133,6 +152,8 @@ class TetrisMode(GameMode):
                 self.board.matrix[21][9] != 'E' or \
                 self.board.matrix[21][10] != 'E':
             self.reset()
+            done = True
+        return cleared_lines, self.back_to_back, tspin, pc, cmb, done
 
     def reset(self):
 
@@ -163,6 +184,14 @@ class TetrisMode(GameMode):
         self.combo = -1
 
         self.frames = 0
+
+        moves = []
+        for move in self.moves:
+            moves.append(move[-1])
+        if not self.has_held:
+            moves.append((0, 0, 4))
+
+        return moves
 
     def generate_tetromino(self):
         if self.current_bag_index == 7:
@@ -200,7 +229,7 @@ class TetrisMode(GameMode):
         if not self.has_held:
             self.has_held = True
             self.current_tetromino.kill()
-            if self.hold_tetromino == '':
+            if self.hold_tetromino == '' or self.hold_tetromino == 'E':
                 self.hold_tetromino = self.current_tetromino.name
                 self.generate_tetromino()
                 self.evaluate_next_pieces()
@@ -223,3 +252,49 @@ class TetrisMode(GameMode):
                                         draw_position + pygame.Vector2(j * self.settings.tile_size + xoffset,
                                                                        i * self.settings.tile_size))
                         self.hold_piece.add(new_tile)
+
+    def step(self, action):
+        self.frames += 1
+        done = False
+        cleared_lines = 0
+        back_to_back = False
+        tspin = False
+        pc = False
+        cmb = 0
+        if action[2] != 4:
+            new_line, new_column, new_rotation = action
+            self.current_tetromino.position_tile(new_line, new_column, new_rotation)
+            self.current_tetromino.lock_piece()
+            events = pygame.event.get()
+            for event in events:
+                if event.type == pygame.USEREVENT + 1:
+                    cleared_lines, back_to_back, tspin, pc, cmb, done = \
+                        self.tile_placed(event.tileList, event.tileName,
+                                     event.tilePos, event.tileRotation,
+                                     event.lastMovement, event.lastWallkick)
+
+        else:
+            self.hold()
+
+        slice_matrix = self.board.matrix[20:40, 1:11]
+        line_matrix = np.array(list(map(ord, np.hstack(slice_matrix))))
+        line_matrix = line_matrix != 69
+        line_matrix = line_matrix.astype(np.float32)
+        state_matrix = line_matrix.reshape((20, 10, 1))
+
+        all_pieces = self.current_bag + self.next_bag
+        next_pieces_name = all_pieces[self.current_bag_index: self.current_bag_index + 5]
+        pieces = [self.current_tetromino.name] + next_pieces_name + [self.hold_tetromino]
+        pieces = np.array(list(map(ord, pieces)))
+
+        moves = []
+        for move in self.moves:
+            moves.append(move[-1])
+        if not self.has_held:
+            moves.append((0, 0, 4))
+
+        if len(self.moves) == 0:
+            done = True
+        line_info = [cleared_lines, back_to_back, tspin, pc, cmb]
+
+        return state_matrix, line_info, pieces, moves, done

@@ -9,5 +9,5 @@ class GameMode(ABC):
         pass
 
     @abstractmethod
-    def loop(self, events):
+    def render(self):
         pass

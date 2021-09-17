@@ -306,3 +306,18 @@ class Tetromino(pygame.sprite.Sprite):
                     new_tile = Tile(self.board.tile_lib[self.name],
                                     init_pos + pygame.Vector2(j * self.settings.tile_size, i * self.settings.tile_size))
                     self.tileset.add(new_tile)
+
+    def position_tile(self, line, column, rotation):
+        pos = self.board_position + pygame.Vector2(column * self.settings.tile_size,
+                                                   line * self.settings.tile_size)
+        self.tileset.empty()
+        for i in range(len(self.data[rotation])):
+            for j in range(len(self.data[rotation][i])):
+                if self.data[rotation][i][j] != 0:
+                    new_tile = Tile(self.board.tile_lib[self.name],
+                                    pos + pygame.Vector2(j * self.settings.tile_size,
+                                                         i * self.settings.tile_size))
+                    self.tileset.add(new_tile)
+        self.line = line
+        self.column = column
+        self.rotation = rotation

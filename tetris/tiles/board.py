@@ -65,12 +65,12 @@ class Board(pygame.sprite.Sprite):
             ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
             ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
             ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
-            ['B', 'E', 'E', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'B'],
-            ['B', 'E', 'E', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'B'],
-            ['B', 'E', 'E', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'B'],
-            ['B', 'E', 'E', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'B'],
-            ['B', 'E', 'E', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'B'],
-            ['B', 'E', 'E', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'J', 'B'],
+            ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+            ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+            ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+            ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+            ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
+            ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
             ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
             ['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B'],
             ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B']
@@ -140,12 +140,6 @@ class Board(pygame.sprite.Sprite):
             for new_line in range(cleared_lines):
                 new_board = np.vstack((np.array(['B', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'B']), new_board))
 
-            # Check Perfect Clear
-            for i in reversed(range(40)):
-                for j in range(1, 11):
-                    if new_board[i, j] != 'E':
-                        perfect_clear = False
-
             # Check T-spin
             if tile_name == 'T' and (last_movement == 'Rotate CClockwise' or last_movement == 'Rotate Clockwise'):
                 if tile_rotation == 0:
@@ -177,6 +171,12 @@ class Board(pygame.sprite.Sprite):
 
             self.matrix = new_board.copy()
             self.recreate_board() # needs to be optimized
+
+        # Check Perfect Clear
+        for i in reversed(range(40)):
+            for j in range(1, 11):
+                if self.matrix[i, j] != 'E':
+                    perfect_clear = False
 
         return [cleared_lines, perfect_clear, tspin]
 
